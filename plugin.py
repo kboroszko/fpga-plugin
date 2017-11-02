@@ -111,15 +111,15 @@ class GeneratorCommand(sublime_plugin.TextCommand):
 				pat = re.compile(conn_line_start + total_path + conn_line_end) 
 				match = self.parse_one(pat, self.conns)
 				if len(match) > 0 :					
-					v.n_start = min(match.keys())
-					v.n_end   = max(match.keys())
+					v.n_start = int(min(match.keys()))
+					v.n_end   = int(max(match.keys()))
 					v.one_bit = (v.n_start == v.n_end)					
 					v.addr = match[v.n_start]['#']
 					v.word = match[v.n_start]['w']
 					v.bit  = match[v.n_start]['b']
 					#(region, "(\[[0-9|:]*\]\s*)?\w+;\s*//\s*[\w|\.|/]+[\[|\]]*") :
 					v.failed = False
-					self.logger.debug(v.name + " : " + str(v.n_start) + "," + str(v.n_end) + "," + str(v.addr))
+					self.logger.info(v.name + " : " + str(v.n_start) + "," + str(v.n_end) + "," + str(v.addr))
 				else :
 					self.logger.error("NOTHING FOUND IN CONNS FOR " + v.name + " : " + str(total_path) )
 				g.variables.append(v)	
@@ -138,33 +138,30 @@ class GeneratorCommand(sublime_plugin.TextCommand):
 			groups = self.find_groups(task)
 			#self.view.insert(edit, task.end(), "\n //AUTO GENERATED PART \n")
 			for gr in groups :
-				print("GROUP path=", gr.path )
+				# print("GROUP path=", gr.path )
 				for v in gr.variables :
-					print("var ", v.path,", name=",v.name,", ", "failed" if v.failed else "succ.")
+					self.updateAddr(edit, gr, task)
+					# print("var ", v.path,", name=",v.name,", ", "failed" if v.failed else "succ.")
 					#self.view.insert(edit, task.end(), createVarFunction("//inside", v.name))
 			#self.view.insert(edit, task.end(), "\n //END_OF AUTO GENERATED PART \n") 
 
 
+	def updateAddr(self, edit, group, task) :
+		for var in group.variables :
+			if not var.one_bit and not var.failed :
+				var_region = self.find_in_region(task, var.name)[0]
+				line_region = self.view.line(var_region)
+				scope_region = self.find_in_region(line_region, "\[[0-9]*:?[0-9]*\]")[0]
+				self.logger.debug("found scope_region for " + var.name + " r: " + self.view.substr(scope_region) + " " + str(scope_region))
+				
+				self.view.replace(edit, scope_region, "[" + str(var.n_end - var.n_start) + ":" + str(var.n_start) + "]")
 
-		# pat = re.compile('([0-9]+)\s([0-9]+)\s([0-9]+)\s.*([0-9]+)\s.*' + "io_frw_i/hydra/hydra2_0/start_addr" + '\[([0-9])+\]') 
-		# print('([0-9]+)\s([0-9]+)\s([0-9]+)\s.*([0-9]+)\s.*' + "io_frw_i/hydra/hydra2_0/start_addr" + '\[([0-9])+\]')
-		# match = self.parse_one(pat, self.conns)
-		# print(match)
 
-		# regs = self.find_tasks() # self.find_in_region(self.find_tasks()[0], "(?:\[[0-9|:]+\]*\s*)?\w+;\s*\/\/\s*([\w|\.|/]+)[\[|\]]*")
-		# #"(\[[0-9|:]*\]\s*)?\w+;\s*//\s*[\w|\.|/]+[\[|\]]*")
-		# print(len(regs))
-		# i = 0
-		# for r in regs :
-		# 	i += 1
-		# 	s = self.view.substr(r);
-		# 	print(i, s)
-		# 	for line in s.split('\n') :
-		# 		print("line: ", line)
-		# 		found = var_path_section.search(line)
-		# 		if found :
-		# 			print("MATCH")
-		# 			print(found.group(0))
+
+
+
+
+
 #generates a separated space for function
 def createVarFunction(inside, varName) :
     s = ""

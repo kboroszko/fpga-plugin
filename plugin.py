@@ -15,7 +15,7 @@ from .const.const import *
 class GeneratorCommand(sublime_plugin.TextCommand):
 
 	def __init__(self, x):
-		self.conns = []
+		self.conns = dict()
 		self.logger = logging.getLogger('driver_generator')
 		self.logger.setLevel(logging.DEBUG)
 		self.logger.propagate = False
@@ -28,7 +28,6 @@ class GeneratorCommand(sublime_plugin.TextCommand):
 		self.logger.addHandler(ch)
 
 		super(GeneratorCommand, self).__init__(x)
-		#print("GC init time=",time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.gmtime()))
 
 
 	def find_in_region(self, reg, pattern):
@@ -49,8 +48,12 @@ class GeneratorCommand(sublime_plugin.TextCommand):
 			if reg_match : 
 				pwd = os.path.dirname(os.path.abspath(__file__))
 				full_path = str(pwd) + "\\" + reg_match.group(1)
-				self.logger.debug("found file: " + str(full_path))
-				self.conns.append(full_path)
+				if len(reg_match.groups()) > 1 :
+					file_type = reg_match.group(2)  
+				else : 
+					file_type = None
+				self.logger.debug("found " + str(file_type) + " file: " + str(full_path))
+				self.conns[full_path] = str(file_type)
 				found = True
 		self.logger.info("found " + str(len(self.conns)) + " conns")
 		self.logger.debug("conns: " + str(self.conns))
@@ -64,6 +67,16 @@ class GeneratorCommand(sublime_plugin.TextCommand):
 		self.logger.info("found " + str(len(regions)) + " tasks to process")
 		return regions
 
+	def  find_tasks_generator(self) :
+		"wytnij fragment definicji"
+		i = 1
+		region = self.view.find("tasks_to_generate([\s|\S])+end_of_tasks_to_generate", 0)
+		while region :
+			self.logger.info("found task to process #" + str(i))
+			yield region
+			region = self.view.find("tasks_to_generate([\s|\S])+end_of_tasks_to_generate", region.end() + 1)
+
+
 	def find_groups(self, task_region):
 		"znajdź fragmenty o wspólnych ścierzkach globalnych"
 		groups = []
@@ -72,8 +85,6 @@ class GeneratorCommand(sublime_plugin.TextCommand):
 		for gr in group_regions :
 			groups.append(self.CreateGroup(self.view.substr(gr)))
 		return groups
-		# print(len(regions))
-		# print(self.view.substr(regions[0]))
 
 	
 	def parse_one(self, reg, files):
@@ -92,6 +103,7 @@ class GeneratorCommand(sublime_plugin.TextCommand):
 						id={'#':1,'w':2,'b':3}
 						outcome[idx]=dict([(k,res.group(n)) for (k,n) in id.items()])
 						outcome[idx]['idx']=idx
+						outcome[idx]["type"] = files[fl]
 		return outcome
 
 
@@ -111,13 +123,14 @@ class GeneratorCommand(sublime_plugin.TextCommand):
 				pat = re.compile(conn_line_start + total_path + conn_line_end) 
 				match = self.parse_one(pat, self.conns)
 				if len(match) > 0 :					
+					# self.logger.debug("found match for " + v.name + " \n" + str(match))
 					v.n_start = int(min(match.keys()))
 					v.n_end   = int(max(match.keys()))
 					v.one_bit = (v.n_start == v.n_end)					
 					v.addr = match[v.n_start]['#']
 					v.word = match[v.n_start]['w']
 					v.bit  = match[v.n_start]['b']
-					#(region, "(\[[0-9|:]*\]\s*)?\w+;\s*//\s*[\w|\.|/]+[\[|\]]*") :
+					v.match = match
 					v.failed = False
 					self.logger.info(v.name + " : " + str(v.n_start) + "," + str(v.n_end) + "," + str(v.addr))
 				else :
@@ -129,35 +142,39 @@ class GeneratorCommand(sublime_plugin.TextCommand):
 
 	def run(self, edit):
 		print(separator)
-		self.conns = []
+		self.conns = dict()
 		self.find_conns()
-		tasks = self.find_tasks()
-		#print("tasks len: ", len(tasks))		
-		for task in tasks :  #zamienic na for i, e in reversed(list(enumerate(task))):
-			# print(self.view.substr(task))
+		#print("tasks len: ", len(tasks))	
+		tasks_generator = self.find_tasks_generator()	
+		while True :
+			task = next(tasks_generator, None) 
+			if task == None : 
+				break
 			groups = self.find_groups(task)
+			self.logger.info("found " + str(len(groups)) + " groups")
 			#self.view.insert(edit, task.end(), "\n //AUTO GENERATED PART \n")
 			for gr in groups :
 				# print("GROUP path=", gr.path )
-				for v in gr.variables :
-					self.updateAddr(edit, gr, task)
-					# print("var ", v.path,", name=",v.name,", ", "failed" if v.failed else "succ.")
-					#self.view.insert(edit, task.end(), createVarFunction("//inside", v.name))
-			#self.view.insert(edit, task.end(), "\n //END_OF AUTO GENERATED PART \n") 
+				self.updateAddr(edit, gr, task)
+					
+
 
 
 	def updateAddr(self, edit, group, task) :
+		self.logger.info("updating scopes for " + group.path)
 		for var in group.variables :
-			if not var.one_bit and not var.failed :
-				var_region = self.find_in_region(task, var.name)[0]
-				line_region = self.view.line(var_region)
-				scope_region = self.find_in_region(line_region, "\[[0-9]*:?[0-9]*\]")[0]
-				self.logger.debug("found scope_region for " + var.name + " r: " + self.view.substr(scope_region) + " " + str(scope_region))
-				
-				self.view.replace(edit, scope_region, "[" + str(var.n_end - var.n_start) + ":" + str(var.n_start) + "]")
-
-
-
+			if not var.failed :
+				if not var.one_bit:
+					self.logger.info("updating scope for " + var.name)
+					var_region = self.find_in_region(task, var.name)[0]
+					line_region = self.view.line(var_region)
+					scope_region = self.find_in_region(line_region, "\[[0-9]*:?[0-9]*\]")[0]
+					self.logger.debug("found scope_region for " + var.name + " r: " + self.view.substr(scope_region) + " " + str(scope_region))
+					self.view.replace(edit, scope_region, "[" + str(var.n_end - var.n_start) + ":" + str(var.n_start) + "]")
+				else :
+					self.logger.info("ommiting " + var.name + " because its one_bit")
+			else :
+				self.logger.error(var.name + " failed. no scope to update")
 
 
 

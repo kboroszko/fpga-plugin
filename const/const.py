@@ -7,10 +7,11 @@ class Variable():
         self.addr = ""
         self.word = ""
         self.bit = ""
-        self.n_start = ""
-        self.n_end = ""
-        self.one_bit = ""
+        self.n_start = 0
+        self.n_end = 0
+        self.one_bit = False
         self.failed = True
+        self.match = dict()
 
 class VarGroup():
     "klasa na grupę deklaracji"
@@ -22,7 +23,7 @@ class VarGroup():
 folder = "io_frw_i"
 
 # regexp który znajduje conn file
-conn_file_name = re.compile('.*conn_file:\s(\w+\.\w+)')
+conn_file_name = re.compile('.*conn_file:\s(\w+\.\w+)\s*(\w+)')
 
 # regexp który znajduje sciezki do zmiennych dla kazdej grupy
 var_path_section = re.compile('('+ folder +'[\w|_|.|/]+)+')

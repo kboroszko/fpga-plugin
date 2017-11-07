@@ -9,6 +9,7 @@ class Variable():
         self.bit = ""
         self.n_start = 0
         self.n_end = 0
+        self.write = True
         self.one_bit = False
         self.failed = True
         self.match = dict()

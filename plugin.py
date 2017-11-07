@@ -90,21 +90,21 @@ class GeneratorCommand(sublime_plugin.TextCommand):
 	def parse_one(self, reg, files):
 		"funkcja która w plikach w liście files znajduje matche do reg"
 		outcome = dict();
+		file_type = None
 		for fl in files:
 			with open(fl, 'r') as f:
 				for line in f:
 					res = reg.search(line)
 					# 1: adres bitowy, 2: #word, 3: #bit, 4:#leaf, 5 [nn], 6=nn
 					if res: 
+						idx=0
 						if res.group(5) : 
 							idx=int(res.group(6))
-						else: 			
-							idx=0
-						id={'#':1,'w':2,'b':3}
-						outcome[idx]=dict([(k,res.group(n)) for (k,n) in id.items()])
-						outcome[idx]['idx']=idx
-						outcome[idx]["type"] = files[fl]
-		return outcome
+						outcome[res.group(1)] = idx
+						if not file_type == files[fl] or not file_type == None :
+							raise Exception("Found in read and write files")
+						file_type = files[fl]
+		return (outcome, file_type)
 
 
 	def CreateGroup(self, chunk):
@@ -121,16 +121,18 @@ class GeneratorCommand(sublime_plugin.TextCommand):
 				total_path = str(os.path.normpath(g.path + '/' + v.path)).replace("\\", "/")
 				self.logger.debug("variable " + v.name + " total_path=" + str(total_path))
 				pat = re.compile(conn_line_start + total_path + conn_line_end) 
-				match = self.parse_one(pat, self.conns)
+				try:
+					(match, ft) = self.parse_one(pat, self.conns)
+				except Exception as e:
+					if e.message == "Found in read and write files" :
+						raise Exception("Variable " + v.name + " found in both read and write files!") from e
 				if len(match) > 0 :					
 					# self.logger.debug("found match for " + v.name + " \n" + str(match))
-					v.n_start = int(min(match.keys()))
-					v.n_end   = int(max(match.keys()))
+					v.map = match
+					v.n_start = int(min(match.values()))
+					v.n_end   = int(max(match.values()))
 					v.one_bit = (v.n_start == v.n_end)					
-					v.addr = match[v.n_start]['#']
-					v.word = match[v.n_start]['w']
-					v.bit  = match[v.n_start]['b']
-					v.match = match
+					v.write = (ft == 'write')
 					v.failed = False
 					self.logger.info(v.name + " : " + str(v.n_start) + "," + str(v.n_end) + "," + str(v.addr))
 				else :
@@ -176,13 +178,36 @@ class GeneratorCommand(sublime_plugin.TextCommand):
 			else :
 				self.logger.error(var.name + " failed. no scope to update")
 
+	def findWords(self, group):
+		words_write = dict()
+		words_read = dict()
+		for gr in groups :
+			for var in gr.variables :
+				if var.write :
+					if words_write[var.word] :
+						words_write[var.word].append(var)
+					else :
+						words_write[var.word] = [var]
+				else :
+					if words_read[var.word] :
+						words_read[var.word].append(var)
+					else :
+						words_read[var.word] = [var]
+		return (words_write, words_read)
+
+	# def writeFunctionBody(self, var_list, word_num) :
+	# 	s = "\ttask cntrl_w" + word_num + "();\n"
+	# 	s += "\t\tbit [31:0] odata;"
+	# 	for word
+
+
 
 
 
 #generates a separated space for function
-def createVarFunction(inside, varName) :
+def createVarFunction(inside, word_num) :
     s = ""
-    s += "// function for variable " + varName + "\n"
+    s += "// function for word #" + word_num + "\n"
     s += inside + "\n"
     s += "// end_of_function for variable " + varName + "\n"
     return s

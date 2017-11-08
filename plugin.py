@@ -100,7 +100,7 @@ class GeneratorCommand(sublime_plugin.TextCommand):
 						idx=0
 						if res.group(5) : 
 							idx=int(res.group(6))
-						outcome[res.group(1)] = idx
+						outcome[int(res.group(1))] = idx
 						#self.logger.info("found " + str(res.groups()) +" file:"+fl)
 						found_flags[fl]=True
 		if len(found_flags) >1:
@@ -162,6 +162,9 @@ class GeneratorCommand(sublime_plugin.TextCommand):
 			for gr in groups :
 				# print("GROUP path=", gr.path )
 				self.updateAddr(edit, gr, task)
+			(read, write) = self.transformToWordMap(groups)
+			# print(read)
+			# print(write)
 					
 
 
@@ -199,10 +202,25 @@ class GeneratorCommand(sublime_plugin.TextCommand):
 						words_read[var.word] = [var]
 		return (words_write, words_read)
 
-	# def writeFunctionBody(self, var_list, word_num) :
-	# 	s = "\ttask cntrl_w" + word_num + "();\n"
-	# 	s += "\t\tbit [31:0] odata;"
-	# 	for word
+	def transformToWordMap(self, groups) :
+		read = dict()
+		write = dict()
+		for g in groups :
+			for v in g.variables :
+				if (not v.failed) and (not v.one_bit) :
+					print(v.name, v.failed)
+					dictionary = write if v.write else read
+					stop = int(max(v.map.keys())/32) + 1
+					start = int(min(v.map.keys())/32)
+					for word_num in range(start, stop) :
+						lis = list(filter(lambda x : int(x[0]/32) == word_num, v.map.items() ))
+						if word_num in dictionary :
+							dictionary[word_num].append((v.name, lis))
+						else :
+							dictionary[word_num] = [(v.name, lis)]
+		return (read, write)
+
+		
 
 
 

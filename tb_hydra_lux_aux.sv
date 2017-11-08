@@ -5,8 +5,8 @@ module hydra_lux_cntrl #(parameter HYDRA_OFFS_O=0,parameter HYDRA_OFFS_I=0)
 	();
 // input
 
-// conn_file: conn2.txt
-// conn_file: conn0.txt
+// conn_file: conn2.txt write
+// conn_file: conn0.txt read
 
 // tasks_to_generate
 // io_frw_i/hydra/hydra2_0/inst/i_hydra_lux 
@@ -15,13 +15,13 @@ module hydra_lux_cntrl #(parameter HYDRA_OFFS_O=0,parameter HYDRA_OFFS_I=0)
 	bit [7:0]  nframes_cyc; // frames_cntr/maxval[] 
 	bit nrst; // ../nrst
 	bit stop_nframes; // stop_nframes
-	bit [9:0] line_cntv; // line_cntr/val[]
+	bit [7:2] line_cntv; // line_cntr/val[]
 	bit [7:0] frame_cntv; // frame_cntr/val[]
 // }
 // io_frw_i/hydra/hydra2_0/inst/bramin {
 	bit [11:0] finaddr; // finaddr_reg[]/D
 	bit stopf; //stopf_reg/D
-	bit [11:0] addrb;  // addrb[]
+	bit [11:2] addrb;  // addrb[]
 	bit [2:0] ncyc;  // ncyc_reg[]/Q 
 	bit ien;  // ien_reg 
 // }	

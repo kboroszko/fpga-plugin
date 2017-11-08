@@ -31,7 +31,7 @@ class GeneratorCommand(sublime_plugin.TextCommand):
 
 
 	def find_in_region(self, reg, pattern):
-		tmp = []
+		tmp = [] 
 		region = self.view.find(pattern, reg.begin())
 		while  region and region.begin() >= reg.begin() and region.end() <= reg.end() :
 			tmp.append(region)
@@ -90,7 +90,7 @@ class GeneratorCommand(sublime_plugin.TextCommand):
 	def parse_one(self, reg, files):
 		"funkcja która w plikach w liście files znajduje matche do reg"
 		outcome = dict();
-		file_type = None
+		found_flags={}
 		for fl in files:
 			with open(fl, 'r') as f:
 				for line in f:
@@ -101,10 +101,14 @@ class GeneratorCommand(sublime_plugin.TextCommand):
 						if res.group(5) : 
 							idx=int(res.group(6))
 						outcome[res.group(1)] = idx
-						if not file_type == files[fl] or not file_type == None :
-							raise Exception("Found in read and write files")
-						file_type = files[fl]
-		return (outcome, file_type)
+						#self.logger.info("found " + str(res.groups()) +" file:"+fl)
+						found_flags[fl]=True
+		if len(found_flags) >1:
+			raise Exception("Found leaf in both read and write files")
+		if len(found_flags) ==0:
+			return (outcome, None)
+		file_name=list(found_flags.keys())[0]			
+		return (outcome, files[file_name])
 
 
 	def CreateGroup(self, chunk):
@@ -124,7 +128,7 @@ class GeneratorCommand(sublime_plugin.TextCommand):
 				try:
 					(match, ft) = self.parse_one(pat, self.conns)
 				except Exception as e:
-					if e.message == "Found in read and write files" :
+					if str(e) == "Found leaf in both read and write files" :
 						raise Exception("Variable " + v.name + " found in both read and write files!") from e
 				if len(match) > 0 :					
 					# self.logger.debug("found match for " + v.name + " \n" + str(match))

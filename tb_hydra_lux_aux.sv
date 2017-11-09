@@ -5,8 +5,8 @@ module hydra_lux_cntrl #(parameter HYDRA_OFFS_O=0,parameter HYDRA_OFFS_I=0)
 	();
 // input
 
-// conn_file: conn2.txt write
-// conn_file: conn0.txt read
+// conn_file: conn2.txt read
+// conn_file: conn0.txt write
 
 // tasks_to_generate
 // io_frw_i/hydra/hydra2_0/inst/i_hydra_lux 

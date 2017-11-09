@@ -163,8 +163,8 @@ class GeneratorCommand(sublime_plugin.TextCommand):
 				# print("GROUP path=", gr.path )
 				self.updateAddr(edit, gr, task)
 			(read, write) = self.transformToWordMap(groups)
-			# print(read)
-			# print(write)
+			for (word_num, var_list) in read.items() :
+				print(self.createWordReadBody(word_num, var_list))
 					
 
 
@@ -207,7 +207,7 @@ class GeneratorCommand(sublime_plugin.TextCommand):
 		write = dict()
 		for g in groups :
 			for v in g.variables :
-				if (not v.failed) and (not v.one_bit) :
+				if (not v.failed) :
 					print(v.name, v.failed)
 					dictionary = write if v.write else read
 					stop = int(max(v.map.keys())/32) + 1
@@ -215,13 +215,42 @@ class GeneratorCommand(sublime_plugin.TextCommand):
 					for word_num in range(start, stop) :
 						lis = list(filter(lambda x : int(x[0]/32) == word_num, v.map.items() ))
 						if word_num in dictionary :
-							dictionary[word_num].append((v.name, lis))
+							dictionary[word_num].append((v, lis))
 						else :
-							dictionary[word_num] = [(v.name, lis)]
+							dictionary[word_num] = [(v, lis)]
 		return (read, write)
 
 		
+	def createWordWriteBody(self, word_num, var_list) :
+		s = ""
+		s += "\ttask cntrl_w" + str(word_num) + "();\n"
+		s += "\t\tbit [31:0] odata;\n"
+		for (v, bit_list) in var_list :
+			if v.one_bit :
+				s += "\t\todata[" + str(bit_list[0][1]) + "]="  + v.name + ";\n"
+			else :
+				start = min(bit_list, key=lambda x : x[1])
+				end = max(bit_list, key=lambda x : x[1])
+				s += "\t\todata[" + str(start[0]) + ":" + str(end[0]) + "]=" 
+				s += v.name + "[" + str(start[1]) + ":" + str(end[1]) + "];\n"
+		s += "`\t\tcntrl_w(HYDRA_OFFS_O+" + str(word_num) + ",odata);\n"
+		s += "\tendtask\n"
+		return s
 
+	def createWordReadBody(self, word_num, var_list) :
+		s = ""
+		s += "\ttask cntrl_r" + str(word_num) + "();\n"
+		s += "\t\t`cntrl_r(HYDRA_OFFS_I+" + str(word_num) + ",idata);\n"
+		for (v, bit_list) in var_list :
+			if v.one_bit :
+				s += "\t\t" + v.name + "=idata[" + str(bit_list[0][0]) + "];\n"
+			else :
+				start = min(bit_list, key=lambda x : x[1])
+				end = max(bit_list, key=lambda x : x[1])
+				s += "\t\t" + v.name + "[" + str(start[1]) + ":" + str(end[1]) + "]="
+				s += "idata[" + str(start[0]) + ":" + str(end[0]) + "];\n"
+		s += "\tendtask\n"
+		return s
 
 
 

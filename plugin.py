@@ -94,13 +94,13 @@ class GeneratorCommand(sublime_plugin.TextCommand):
 		outcome = dict();
 		found_flags={}
 		found_strings={}
-		for fl in enumerate(files):
+		for fl in files:
 			with open(fl, 'r') as f:
 				for line in f:
 					res = reg.search(line)
 					# 1: adres bitowy, 2: #word, 3: #bit, 4:#leaf, 5 [nn], 6=nn
 					if res: 
-						idx=0
+						idx=0						
 						if res.group(5) : 
 							idx=int(res.group(6))
 						outcome[int(res.group(1))] = idx
@@ -109,9 +109,10 @@ class GeneratorCommand(sublime_plugin.TextCommand):
 						if fl in found_strings:
 							found_strings[fl].append(res.group(0))
 						else: 
-							found_strings[fl]=[res.group(0)]
+							found_strings[fl]=[res.group(0)]							
 		if len(found_flags) >1:			
-			print("Exception: ",found_strings)
+			self.logger.debug("Exception: ")
+			[(print(k),[print(j) for j in i]) for (k,i) in found_strings.items()]
 			raise Exception("Found leaf in both read and write files")
 		if len(found_flags) ==0:
 			return (outcome, None)
@@ -121,6 +122,7 @@ class GeneratorCommand(sublime_plugin.TextCommand):
 
 	def CreateGroup(self, chunk):
 		"opracuj poszczególne deklaracje"
+		conn_line_end = '(\[([0-9]+)\])?[ \n/]'
 		reg_match = var_path_section.search(chunk.split('\n')[0])
 		g = VarGroup( reg_match.group(0))
 		self.logger.debug("group g.path=" + str(g.path))
@@ -135,11 +137,15 @@ class GeneratorCommand(sublime_plugin.TextCommand):
 				pat_string=conn_line_start + total_path + conn_line_end
 				pat = re.compile(pat_string) 
 				try:
-					(match, ft) = self.parse_one(pat, self.conns)
+					#self.logger.debug("parse_one pat_string:"+pat_string);
+					(match, ft) =  self.parse_one(pat, self.conns)					
 				except Exception as e:
 					if str(e) == "Found leaf in both read and write files" :
 						print("Exception\n pattern:",pat_string)
 						raise Exception("Variable " + v.name + " found in both read and write files!") from e
+					else:
+						print("Unexpected error",  sys.exc_info()[0])
+						raise						
 				if len(match) > 0 :					
 					# self.logger.debug("found match for " + v.name + " \n" + str(match))
 					v.map = match
@@ -151,6 +157,7 @@ class GeneratorCommand(sublime_plugin.TextCommand):
 					self.logger.info(v.name + " : " + str(v.n_start) + "," + str(v.n_end) + "," + str(v.addr))
 				else :
 					self.logger.error("NOTHING FOUND IN CONNS FOR " + v.name + " : " + str(total_path) )
+					self.logger.error("pattern:"+pat_string)
 				g.variables.append(v)	
 		return g
 
@@ -218,18 +225,19 @@ class GeneratorCommand(sublime_plugin.TextCommand):
 
 	def updateAddr(self, edit, group, task) :
 		self.logger.info("updating scopes for " + group.path)
-		sel = self.view.sel()
+		sel = self.view.sel() 
 		#sel.clear()
-		for var in group.variables :
+		for var in group.variables: 
 			if not var.failed :
-				self.logger.info("updating scope for " + var.name)
+				#self.logger.info("updating scope for " + var.name)
 				var_region = self.find_in_region(task, var.name)[0]
 				line_region = self.view.line(var_region)
 				bit_region = self.find_in_region(line_region, "bit")[0]
 				#scope_region = self.find_in_region(line_region, "\[[0-9]*:?[0-9]*\]")[0]
 				scope_region=sublime.Region(bit_region.end(),var_region.begin())
 				sel.add(scope_region)
-				self.logger.debug("found scope_region for " + var.name + " r: " + self.view.substr(scope_region) + " " + str(scope_region))
+				self.logger.debug("found scope_region for " + 
+					var.name + " reg:" + self.view.substr(scope_region) + ": " + str(scope_region))
 				if not var.one_bit:
 					rangestr="[" + str(var.n_end - var.n_start) + ":" + str(var.n_start) + "]"
 				else :					
@@ -256,11 +264,12 @@ class GeneratorCommand(sublime_plugin.TextCommand):
 		return (words_write, words_read)
 
 	def transformToWordMap(self, groups) :
+		"dane do generowanie tasków r/w"
 		read = dict()
 		write = dict()
 		for g in groups :
 			for v in g.variables :
-				if (not v.failed) and (not v.one_bit) :
+				if (not v.failed):
 					#print(v.name, v.failed)
 					dictionary = write if v.write else read
 					stop = int(max(v.map.keys())/32) + 1

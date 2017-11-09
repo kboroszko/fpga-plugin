@@ -33,15 +33,10 @@ var_parse = re.compile("(?:(?:\[[0-9|:]*\])*\s*)?(\w+);\s*\/\/\s*(([\w|\.|/]+))[
 conn_line_start = '([0-9]+)\s([0-9]+)\s([0-9]+)\s.*([0-9]+)\s[^\n]*' 
 
 # regex konca linijki w pliku conn
-conn_line_end = '(\[([0-9]+)\])*'
+conn_line_end = '(\[([0-9]+)\])?[ \n]'
 # uzycie dwóch powyższych
 # conn_line_start + total_path + conn_line_end
 
-task_proto_h = """ task cntrl_{rw}{offs}();
-    bit [31:0] odata;"""
-
-task_proto_t = """ `cntrl_w({rw}+{offs},odata);
-    endtask"""
 
 
 # separator

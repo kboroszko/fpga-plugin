@@ -34,9 +34,14 @@ conn_line_start = '([0-9]+)\s([0-9]+)\s([0-9]+)\s.*([0-9]+)\s[^\n]*'
 
 # regex konca linijki w pliku conn
 conn_line_end = '(\[([0-9]+)\])*'
-# urzycie dwóch powyższych
+# uzycie dwóch powyższych
 # conn_line_start + total_path + conn_line_end
 
+task_proto_h = """ task cntrl_{rw}{offs}();
+    bit [31:0] odata;"""
+
+task_proto_t = """ `cntrl_w({rw}+{offs},odata);
+    endtask"""
 
 
 # separator
@@ -50,3 +55,4 @@ def createVarFunction(inside, varName) :
     s += "# end_of_function for variable " + varName + "\n"
     return s
 
+print("const of fpga_plugin time=",time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.gmtime()))

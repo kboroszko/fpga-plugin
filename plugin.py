@@ -63,18 +63,14 @@ class GeneratorCommand(sublime_plugin.TextCommand):
 			self.logger.error("NO CONN FILES FOUND!")
 			raise Exception("NO CONN FILES FOUND!")
 
-	def  find_tasks(self) :
-		"wytnij fragment definicji"
-		regions = self.view.find_all("tasks_to_generate([\s|\S])+end_of_tasks_to_generate")
-		self.logger.info("found " + str(len(regions)) + " tasks to process")
-		return regions
-
 	def  find_tasks_generator(self) :
 		"wytnij fragment definicji"
-		i = 1
-		region = self.view.find("tasks_to_generate([\s|\S])+end_of_tasks_to_generate", 0)
+		i = 0
+		region = self.view.find("tasks_to_generate([\s|\S])*?end_of_tasks_to_generate", 0)
 		while region :
+			i += 1
 			self.logger.info("found task to process #" + str(i))
+			# self.logger.info("TASK:\n" + self.view.substr(region))
 			yield region
 			region = self.view.find("tasks_to_generate([\s|\S])+end_of_tasks_to_generate", region.end() + 1)
 
